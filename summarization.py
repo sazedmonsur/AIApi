@@ -1,0 +1,30 @@
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+import openai
+import os
+
+app = FastAPI()
+
+# Ensure OpenAI API key is set from environment variables
+openai.api_key = os.getenv("OPENAI_API_KEY")
+
+class SummarizationRequest(BaseModel):
+    text: str
+    length: str = "short"  # short, medium, long
+
+@app.post("/summarize")
+async def summarize_text(request: SummarizationRequest):
+    if not openai.api_key:
+        raise HTTPException(status_code=500, detail="Missing OpenAI API Key")
+
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-4",
+            messages=[
+                {"role": "system", "content": "You are an AI assistant that summarizes text."},
+                {"role": "user", "content": f"Summarize this in a {request.length} way: {request.text}"}
+            ]
+        )
+        return {"summary": response["choices"][0]["message"]["content"]}
+    except openai.error.OpenAIError as e:
+        raise HTTPException(status_code=500, detail=f"OpenAI API error: {str(e)}")
