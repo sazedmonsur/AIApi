@@ -10,30 +10,25 @@ app = FastAPI()
 # Ensure OpenAI API key is set from environment variables
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
-
 class SummarizationRequest(BaseModel):
     text: str = None  # Optional if URL is provided
     url: HttpUrl = None  # Optional if text is provided
     length: str = "short"  # short, medium, long
 
-
 def extract_text_from_url(url):
     """Fetch and extract main content from a webpage."""
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                      "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
     }
-
     try:
-        response = requests.get(url, headers=headers, timeout=20)  # Increased timeout to 20s
+        response = requests.get(url, headers=headers, timeout=20)
         response.raise_for_status()
 
-        # Check if it's a plain text file
-        content_type = response.headers.get("Content-Type", "").lower()
-        if "text/plain" in content_type:
+        # If the response is text/plain
+        if "text/plain" in response.headers.get("Content-Type", "").lower():
             return response.text.strip()
 
-        # If it's an HTML page, use BeautifulSoup
+        # If the response is HTML
         soup = BeautifulSoup(response.text, "html.parser")
         paragraphs = soup.find_all("p")
         content = " ".join([p.get_text() for p in paragraphs])
@@ -43,8 +38,6 @@ def extract_text_from_url(url):
         raise HTTPException(status_code=408, detail="Request to URL timed out.")
     except requests.RequestException as e:
         raise HTTPException(status_code=400, detail=f"Failed to fetch URL: {str(e)}")
-
-
 
 @app.post("/summarize")
 async def summarize_text(request: SummarizationRequest):
@@ -58,13 +51,14 @@ async def summarize_text(request: SummarizationRequest):
         raise HTTPException(status_code=400, detail="No valid text found to summarize.")
 
     try:
-        response = openai.ChatCompletion.create(
-            model="o3-mini",
+        response = openai.chat.completions.create(  # ✅ FIXED: New API method
+            model="gpt-3.5-turbo",  # Use a valid model from OpenAI
             messages=[
                 {"role": "system", "content": "You are an AI assistant that summarizes text."},
                 {"role": "user", "content": f"Summarize this in a {request.length} way: {content}"}
             ]
         )
-        return {"summary": response["choices"][0]["message"]["content"]}
-    except openai.error.OpenAIError as e:
+        return {"summary": response.choices[0].message.content}  # ✅ FIXED: New response structure
+
+    except openai.OpenAIError as e:  # ✅ FIXED: Corrected exception handling
         raise HTTPException(status_code=500, detail=f"OpenAI API error: {str(e)}")
