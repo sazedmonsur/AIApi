@@ -19,15 +19,31 @@ class SummarizationRequest(BaseModel):
 
 def extract_text_from_url(url):
     """Fetch and extract main content from a webpage."""
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                      "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+    }
+
     try:
-        response = requests.get(url, timeout=10)
+        response = requests.get(url, headers=headers, timeout=20)  # Increased timeout to 20s
         response.raise_for_status()
+
+        # Check if it's a plain text file
+        content_type = response.headers.get("Content-Type", "").lower()
+        if "text/plain" in content_type:
+            return response.text.strip()
+
+        # If it's an HTML page, use BeautifulSoup
         soup = BeautifulSoup(response.text, "html.parser")
         paragraphs = soup.find_all("p")
         content = " ".join([p.get_text() for p in paragraphs])
         return content.strip()
+
+    except requests.Timeout:
+        raise HTTPException(status_code=408, detail="Request to URL timed out.")
     except requests.RequestException as e:
         raise HTTPException(status_code=400, detail=f"Failed to fetch URL: {str(e)}")
+
 
 
 @app.post("/summarize")
