@@ -18,13 +18,13 @@ async def summarize_text(request: SummarizationRequest):
         raise HTTPException(status_code=500, detail="Missing OpenAI API Key")
 
     try:
-        response = openai.ChatCompletion.create(
+        response = openai.chat.completions.create(
             model="gpt-4",
             messages=[
                 {"role": "system", "content": "You are an AI assistant that summarizes text."},
                 {"role": "user", "content": f"Summarize this in a {request.length} way: {request.text}"}
             ]
         )
-        return {"summary": response["choices"][0]["message"]["content"]}
-    except openai.error.OpenAIError as e:
+        return {"summary": response.choices[0].message.content}
+    except openai.OpenAIError as e:
         raise HTTPException(status_code=500, detail=f"OpenAI API error: {str(e)}")
